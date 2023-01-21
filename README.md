@@ -1,6 +1,6 @@
 # Aesthetic Scorer extension for SD Automatic WebUI
 
-Uses existing CLiP model with an additional small pretrained to calculate perceived aesthetic score of an image  
+Uses existing CLiP model with an additional small pretrained model to calculate perceived aesthetic score of an image  
 
 Enable or disable via `Settings` -> `Aesthetic scorer`  
 
