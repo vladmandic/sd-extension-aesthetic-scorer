@@ -10,8 +10,10 @@ from torch import nn
 from torch.nn import functional as f
 from torchvision import transforms
 from torchvision.transforms import functional as tf
+from inspect import getsourcefile
 
-extension_path = 'extensions/aesthetic-scorer'
+# extension_path = 'extensions/sd-extension-aesthetic-scorer'
+extension_path = os.path.join(os.path.dirname(getsourcefile(lambda:0)), '..')
 git_home = 'https://github.com/vladmandic/sd-extensions/blob/main/extensions/aesthetic-scorer/models'
 error = False
 clip_model = None
@@ -74,6 +76,8 @@ def load_models():
 
 
 def cleanup_models():
+    global clip_model
+    global aesthetic_model
     if not shared.opts.interrogate_keep_models_in_memory:
         clip_model = clip_model.to(devices.cpu)
         aesthetic_model = aesthetic_model.to(devices.cpu)
@@ -83,6 +87,8 @@ def cleanup_models():
 
 def on_before_image_saved(params: ImageSaveParams):
     global error
+    global clip_model
+    global aesthetic_model
     if not shared.opts.aesthetic_scorer_enabled or error or params.image is None: # dont try again if previously errored out or no image
         return params
     try:
@@ -95,7 +101,9 @@ def on_before_image_saved(params: ImageSaveParams):
         clip_image_embed = f.normalize(clip_model.encode_image(img[None, ...]).float(), dim = -1)
         score = aesthetic_model(clip_image_embed)
         score = round(score.item(), 2)
-        params.pnginfo['score'] = score
+        # print('Aesthetic score:', score)
+        if 'parameters' in params.pnginfo:
+            params.pnginfo['parameters'] += f', Score: {score}'
         cleanup_models()
     except Exception as e:
         print('Aesthetic scorer error:', e)
