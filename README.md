@@ -21,6 +21,20 @@ This extension uses different method than [Aesthetic Image Scorer](https://githu
 - Windows-only!
 - Executes as to replace `image.save` so limited compatibity with other *non-txt2img* use-cases
 
+## CLI
+
+As a utility for batch processing, this extension can be used from CLI as well  
+Input param provided can be image, list of images, wildcards or folder  
+Score is only output to console and does not modify original file  
+
+> python aesthetic-scorer-cli.py ~/generative/Demo/*.jpg
+
+    Loading CLiP model: ViT-L/14
+    Loading Aesthetic Score model: sac_public_2022_06_29_vit_l_14_linear.pth
+    Aesthetic score: 5.0 for image /home/vlado/generative/Demo/abby.jpg
+    Aesthetic score: 4.18 for image /home/vlado/generative/Demo/ana.jpg
+    Aesthetic score: 4.12 for image /home/vlado/generative/Demo/dreamkelly.jpg
+
 ## Credits
 
 - Based on: [simulacra-aesthetic-models](https://github.com/crowsonkb/simulacra-aesthetic-models)  
