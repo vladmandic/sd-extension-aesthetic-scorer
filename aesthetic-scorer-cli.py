@@ -12,6 +12,8 @@ from torch.nn import functional
 from torchvision import transforms
 from torchvision.transforms import functional as tf
 from PIL import Image
+from PIL import PngImagePlugin
+
 
 git_home = 'https://github.com/vladmandic/sd-extensions/blob/main/extensions/aesthetic-scorer/models'
 clip_model = None
@@ -76,7 +78,7 @@ def aesthetic_score(fn, params):
         img = Image.open(fn)
     except Exception as e:
         print('Aesthetic scorer failed to open image:', e)
-        return 0
+        return 0   
     load_models(params)
     img = img.convert('RGB')
     img = tf.resize(img, 224, transforms.InterpolationMode.LANCZOS) # resizes smaller edge
@@ -87,8 +89,32 @@ def aesthetic_score(fn, params):
     clip_image_embed = functional.normalize(encoded, dim = -1)
     score = aesthetic_model(clip_image_embed)
     score = round(score.item(), 2)
-    print(f'Aesthetic score: {score} for image {fn}')
+    print(f'Aesthetic score: {score} for image {fn}')    
+    if params.save: save_score(fn, score) 
     return score
+
+
+def save_score(fn, score):
+    try:
+        img = Image.open(fn)
+    except Exception as e:
+        print('Aesthetic scorer failed to open image:', e)
+        return 0   
+    if "Score: " in img.info['parameters']:
+        print(f'Not writing score to image, already present: {img.info["parameters"].split("Score: ")[1][:4]}')
+    else:
+        print('Writing score to image...')
+        img.info['parameters'] += f', Score: {score}'
+        metadata = PngImagePlugin.PngInfo()
+        for key, value in img.info.items():
+            if isinstance(key, str) and isinstance(value, str):
+                metadata.add_text(key, value)        
+        try:
+            img.save(fn, pnginfo=metadata)
+            print('Done!')
+        except Exception as e:
+            print('Aesthetic scorer failed to write score to image:', e)
+            return 0
 
 
 if __name__ == '__main__':
@@ -96,6 +122,7 @@ if __name__ == '__main__':
     parser.add_argument('--model', type = str, default = 'sac_public_2022_06_29_vit_l_14_linear.pth', required = False, help = 'CLiP model')
     parser.add_argument('--clip', type = str, default = 'ViT-L/14', required = False, help = 'CLiP model')
     parser.add_argument('input', type = str, nargs = '*', help = 'input image(s) or folder(s)')
+    parser.add_argument('--save', type = bool, default = False, required = False, help = 'Save score to image file. WARNING! This will discard existing Exif tags!' )
     params = parser.parse_args()
     for fn in params.input:
         if os.path.isfile(fn):
