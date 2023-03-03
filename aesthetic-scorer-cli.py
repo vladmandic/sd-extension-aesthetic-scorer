@@ -1,6 +1,8 @@
 #!/bin/env python
 
 import os
+import re
+import piexif
 import argparse
 from inspect import getsourcefile
 
@@ -12,6 +14,7 @@ from torch.nn import functional
 from torchvision import transforms
 from torchvision.transforms import functional as tf
 from PIL import Image
+from exif import Exif
 
 git_home = 'https://github.com/vladmandic/sd-extensions/blob/main/extensions/aesthetic-scorer/models'
 clip_model = None
@@ -78,15 +81,27 @@ def aesthetic_score(fn, params):
         print('Aesthetic scorer failed to open image:', e)
         return 0
     load_models(params)
-    img = img.convert('RGB')
-    img = tf.resize(img, 224, transforms.InterpolationMode.LANCZOS) # resizes smaller edge
-    img = tf.center_crop(img, (224,224)) # center crop non-squared images
-    img = tf.to_tensor(img).to(device)
-    img = normalize(img)
-    encoded = clip_model.encode_image(img[None, ...]).float()
+    exif = Exif(img)
+    thumb = img.convert('RGB')
+    thumb = tf.resize(thumb, 224, transforms.InterpolationMode.LANCZOS) # resizes smaller edge
+    thumb = tf.center_crop(thumb, (224,224)) # center crop non-squared images
+    thumb = tf.to_tensor(thumb).to(device)
+    thumb = normalize(thumb)
+    encoded = clip_model.encode_image(thumb[None, ...]).float()
     clip_image_embed = functional.normalize(encoded, dim = -1)
     score = aesthetic_model(clip_image_embed)
     score = round(score.item(), 2)
+    if params.save:
+        if exif.UserComment is None:
+            exif.exif['UserComment'] = f'Score: {score}'
+        elif 'Score:' in exif.UserComment:
+            exif.exif['UserComment'] = re.sub(r'Score: \d+.\d+', f'Score: {score}', exif.UserComment)
+        else:
+            exif.exif['UserComment'] += f', Score: {score}'
+        # img.save(fn, exif=exif.bytes())
+        piexif.insert(exif.bytes(), fn)
+    if params.exif:
+        print('EXIF metadata:', exif.exif)
     print(f'Aesthetic score: {score} for image {fn}')
     return score
 
@@ -95,6 +110,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'generate model previews')
     parser.add_argument('--model', type = str, default = 'sac_public_2022_06_29_vit_l_14_linear.pth', required = False, help = 'CLiP model')
     parser.add_argument('--clip', type = str, default = 'ViT-L/14', required = False, help = 'CLiP model')
+    parser.add_argument('--save', default = False, action='store_true', help = 'save score as exif info into original image')
+    parser.add_argument('--exif', default = False, action='store_true', help = 'show image exif information')
     parser.add_argument('input', type = str, nargs = '*', help = 'input image(s) or folder(s)')
     params = parser.parse_args()
     for fn in params.input:
