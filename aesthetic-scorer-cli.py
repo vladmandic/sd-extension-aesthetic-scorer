@@ -2,10 +2,11 @@
 
 import os
 import re
-import piexif
+import pathlib
 import argparse
 from inspect import getsourcefile
 
+import piexif
 import requests
 import torch
 from clip import clip
@@ -13,7 +14,7 @@ from torch import nn
 from torch.nn import functional
 from torchvision import transforms
 from torchvision.transforms import functional as tf
-from PIL import Image
+from PIL import Image, JpegImagePlugin, PngImagePlugin
 from exif import Exif
 
 git_home = 'https://github.com/vladmandic/sd-extensions/blob/main/extensions/aesthetic-scorer/models'
@@ -91,28 +92,49 @@ def aesthetic_score(fn, params):
     clip_image_embed = functional.normalize(encoded, dim = -1)
     score = aesthetic_model(clip_image_embed)
     score = round(score.item(), 2)
-    if params.save:
+    if params.save is not None:
+        # prepare metadata
+        if exif.UserComment is None and exif.parameters is not None:
+            exif.exif['UserComment'] = exif.parameters
+            del exif.exif['parameters']
         if exif.UserComment is None:
             exif.exif['UserComment'] = f'Score: {score}'
         elif 'Score:' in exif.UserComment:
             exif.exif['UserComment'] = re.sub(r'Score: \d+.\d+', f'Score: {score}', exif.UserComment)
         else:
             exif.exif['UserComment'] += f', Score: {score}'
-        # img.save(fn, exif=exif.bytes())
-        piexif.insert(exif.bytes(), fn)
+
+        if params.save != '#': # save to specified file
+            if os.path.isdir(params.save):
+                fn = os.path.join(params.save, os.path.basename(fn))
+            else:
+                fn = params.save
+    
+        ext = pathlib.Path(fn).suffix.lower()
+        if ext == '.jpg' or ext == '.jpeg' or ext == '.webp':
+            print('Saving image:', fn)
+            img.save(fn, exif=exif.bytes(), quality=params.quality)
+        elif ext == '.png':
+            print('Saving image:', fn)
+            pnginfo = PngImagePlugin.PngInfo()
+            pnginfo.add_text('parameters', exif.UserComment, zip=False)
+            img.save(fn, pnginfo=pnginfo, quality=params.quality)
+        else:
+            print('Save image unknown format', fn)
     if params.exif:
-        print('EXIF metadata:', exif.exif)
+        print('Metadata:', exif.exif)
     print(f'Aesthetic score: {score} for image {fn}')
     return score
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'generate model previews')
-    parser.add_argument('--model', type = str, default = 'sac_public_2022_06_29_vit_l_14_linear.pth', required = False, help = 'CLiP model')
+    parser.add_argument('--model', type = str, default = 'sac_public_2022_06_29_vit_l_14_linear.pth', required = False, help = 'Aesthetic score model')
     parser.add_argument('--clip', type = str, default = 'ViT-L/14', required = False, help = 'CLiP model')
-    parser.add_argument('--save', default = False, action='store_true', help = 'save score as exif info into original image')
-    parser.add_argument('--exif', default = False, action='store_true', help = 'show image exif information')
-    parser.add_argument('input', type = str, nargs = '*', help = 'input image(s) or folder(s)')
+    parser.add_argument('--exif', default = False, action='store_true', help = 'Show full image exif information')
+    parser.add_argument('--save', nargs='?', default=None, const='#', help='Save image with score into original image or to specified file or folder')
+    parser.add_argument('--quality', type = int, default = 80, required = False, help = 'Image quality when saving images')
+    parser.add_argument('input', type = str, nargs = '*', help = 'Input image(s) or folder(s)')
     params = parser.parse_args()
     for fn in params.input:
         if os.path.isfile(fn):

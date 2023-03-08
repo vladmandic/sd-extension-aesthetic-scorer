@@ -5,7 +5,7 @@ import io
 import re
 import sys
 import warnings
-from PIL import Image, ExifTags, TiffImagePlugin
+from PIL import Image, ExifTags, TiffImagePlugin, PngImagePlugin, JpegImagePlugin
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -14,6 +14,7 @@ class Exif:
     __slots__ = ('__dict__')
     def __init__(self, image = None):
         super(Exif, self).__setattr__('exif', Image.Exif())
+        self.pnginfo = PngImagePlugin.PngInfo()
         self.tags = {**dict(((k, v) for k, v in ExifTags.TAGS.items())), **dict(((k, v) for k, v in ExifTags.GPSTAGS.items()))}
         self.ids = {**dict(((v, k) for k, v in ExifTags.TAGS.items())), **dict(((v, k) for k, v in ExifTags.GPSTAGS.items()))}
         if image is not None:
@@ -26,16 +27,27 @@ class Exif:
         
     def load(self, img: Image):
         img.load() # exif may not be ready
-        exif_dict=dict(img._getexif().items())
+        exif_dict = {}
+        try:
+            exif_dict = dict(img._getexif().items())
+        except:
+            exif_dict = dict(img.info.items())
         for key, val in exif_dict.items():
             if isinstance(val, bytes): # decode bytestring
                 val = self.decode(val)
-            if val is not None and key in ExifTags.TAGS: # add known tags
-                self.exif[self.tags[key]] = val
-                # if self.tags[key] == 'UserComment': # add geninfo from UserComment
-                    # self.geninfo = val
-            elif val is not None:
-                print('exif:', 'unknown tag', key, val)
+            if val is not None:
+                if isinstance(key, str):
+                    self.exif[key] = val
+                    self.pnginfo.add_text(key, str(val), zip=False)
+                elif isinstance(key, int) and key in ExifTags.TAGS: # add known tags
+                    if self.tags[key] in ['ExifOffset']:
+                        continue
+                    self.exif[self.tags[key]] = val
+                    self.pnginfo.add_text(self.tags[key], str(val), zip=False)
+                    # if self.tags[key] == 'UserComment': # add geninfo from UserComment
+                        # self.geninfo = val
+                else:
+                    print('metadata unknown tag:', key, val)
         for key, val in self.exif.items():
             if isinstance(val, bytes): # decode bytestring
                 self.exif[key] = self.decode(val)
@@ -62,7 +74,7 @@ class Exif:
             if key in self.ids:
                 ifd[self.ids[key]] = val
             else:
-                print('metadata:', 'unknown exif tag', key, val)
+                print('metadata unknown exif tag:', key, val)
         ifd.save(exif_stream)
         raw = b'Exif\x00\x00' + exif_stream.getvalue()
         return raw
@@ -72,9 +84,9 @@ def read_exif(fn: str):
     try:
         img = Image.open(fn)
         exif = Exif(img)
-        print('metadata image', fn, exif.exif)
+        print('image:', fn, 'format:', img.format, 'metadata:', exif.exif)
     except Exception as e:
-        print('exif:', 'error reading exif', fn, e)
+        print('metadata error reading:', fn, e)
     # exif.exif['Software'] = 'This is a Test'
     # img.save('input-scored.jpg', exif=exif.bytes())
 
