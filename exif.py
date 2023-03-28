@@ -5,7 +5,7 @@ import io
 import re
 import sys
 import warnings
-from PIL import Image, ExifTags, TiffImagePlugin, PngImagePlugin, JpegImagePlugin
+from PIL import Image, ExifTags, TiffImagePlugin, PngImagePlugin
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -24,12 +24,12 @@ class Exif:
         if attr in self.__dict__:
             return self.__dict__[attr]
         return self.exif.get(attr, None)
-        
+
     def load(self, img: Image):
         img.load() # exif may not be ready
         exif_dict = {}
         try:
-            exif_dict = dict(img._getexif().items())
+            exif_dict = dict(img._getexif().items()) # pylint: disable=protected-access
         except:
             exif_dict = dict(img.info.items())
         for key, val in exif_dict.items():
@@ -62,12 +62,12 @@ class Exif:
                 val = re.sub(r'[\x00-\x09]', '', val).strip() # remove remaining special characters
                 if len(val) == 0: # remove empty strings
                     val = None
-                return val 
+                return val
             except:
                 pass
         return None
 
-    def bytes(self):
+    def get_bytes(self):
         ifd = TiffImagePlugin.ImageFileDirectory_v2()
         exif_stream = io.BytesIO()
         for key, val in self.exif.items():
@@ -80,13 +80,13 @@ class Exif:
         return raw
 
 
-def read_exif(fn: str):
+def read_exif(filename: str):
     try:
-        img = Image.open(fn)
+        img = Image.open(filename)
         exif = Exif(img)
-        print('image:', fn, 'format:', img.format, 'metadata:', exif.exif)
+        print('image:', filename, 'format:', img.format, 'metadata:', exif.exif)
     except Exception as e:
-        print('metadata error reading:', fn, e)
+        print('metadata error reading:', filename, e)
     # exif.exif['Software'] = 'This is a Test'
     # img.save('input-scored.jpg', exif=exif.bytes())
 
