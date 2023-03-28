@@ -1,16 +1,18 @@
 import os
+from inspect import getsourcefile
 
 import gradio as gr
 import requests
 import torch
 from clip import clip
-from modules import devices, script_callbacks, shared
-from modules.script_callbacks import ImageSaveParams
 from torch import nn
 from torch.nn import functional as f
 from torchvision import transforms
 from torchvision.transforms import functional as tf
-from inspect import getsourcefile
+
+from modules import devices, script_callbacks, shared
+from modules.script_callbacks import ImageSaveParams
+
 
 # extension_path = 'extensions/sd-extension-aesthetic-scorer'
 extension_path = os.path.join(os.path.dirname(getsourcefile(lambda:0)), '..')
@@ -32,7 +34,7 @@ class AestheticMeanPredictionLinearModel(nn.Module):
 
 
 def find_model():
-    global error
+    global error # pylint: disable=global-statement
     if shared.opts.aesthetic_scorer_clip_model == 'ViT-L/14':
         model_name = 'sac_public_2022_06_29_vit_l_14_linear.pth'
     elif shared.opts.aesthetic_scorer_clip_model == 'ViT-B/16':
@@ -48,8 +50,8 @@ def find_model():
             print(f'Aesthetic scorer downloading model: {model_name}')
             url = f"{git_home}/{model_name}?raw=true"
             r = requests.get(url, timeout=60)
-            with open(model_path, "wb") as f:
-                f.write(r.content)
+            with open(model_path, "wb") as file:
+                file.write(r.content)
         except Exception as e:
             print(f'Aesthetic scorer downloading model failed: {model_name}:', e)
 
@@ -57,8 +59,8 @@ def find_model():
 
 
 def load_models():
-    global clip_model
-    global aesthetic_model
+    global clip_model # pylint: disable=global-statement
+    global aesthetic_model # pylint: disable=global-statement
     if clip_model is None:
         print(f'Loading CLiP model {shared.opts.aesthetic_scorer_clip_model} ')
         clip_model, _clip_preprocess = clip.load(shared.opts.aesthetic_scorer_clip_model, jit = False, device = shared.device, download_root = shared.cmd_opts.clip_models_path)
@@ -76,8 +78,8 @@ def load_models():
 
 
 def cleanup_models():
-    global clip_model
-    global aesthetic_model
+    global clip_model # pylint: disable=global-statement
+    global aesthetic_model # pylint: disable=global-statement
     if not shared.opts.interrogate_keep_models_in_memory:
         clip_model = clip_model.to(devices.cpu)
         aesthetic_model = aesthetic_model.to(devices.cpu)
@@ -86,9 +88,7 @@ def cleanup_models():
 
 
 def on_before_image_saved(params: ImageSaveParams):
-    global error
-    global clip_model
-    global aesthetic_model
+    global error # pylint: disable=global-statement
     if not shared.opts.aesthetic_scorer_enabled or error or params.image is None: # dont try again if previously errored out or no image
         return params
     try:
