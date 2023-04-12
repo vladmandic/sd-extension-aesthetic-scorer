@@ -118,7 +118,7 @@ def on_before_image_saved(params: ImageSaveParams):
 def on_ui_settings():
     section = ('aesthetic_scorer', "Aesthetic scorer")
     shared.opts.add_option("aesthetic_scorer_enabled", shared.OptionInfo(
-        default = True,
+        default = False,
         label = "Enabled",
         component = gr.Checkbox,
         component_args = { 'interactive': True },
