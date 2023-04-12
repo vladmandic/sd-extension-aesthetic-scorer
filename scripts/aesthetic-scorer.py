@@ -62,8 +62,12 @@ def load_models():
     global clip_model # pylint: disable=global-statement
     global aesthetic_model # pylint: disable=global-statement
     if clip_model is None:
+        try:
+            model_root = shared.opts.clip_models_path
+        except:
+            model_root = shared.cmd_opts.clip_models_path
         print(f'Loading CLiP model {shared.opts.aesthetic_scorer_clip_model} ')
-        clip_model, _clip_preprocess = clip.load(shared.opts.aesthetic_scorer_clip_model, jit = False, device = shared.device, download_root = shared.cmd_opts.clip_models_path)
+        clip_model, _clip_preprocess = clip.load(shared.opts.aesthetic_scorer_clip_model, jit = False, device = shared.device, download_root = model_root)
         clip_model.eval().requires_grad_(False)
         idx = torch.tensor(0).to(shared.device)
         first_embedding = clip_model.token_embedding(idx)
