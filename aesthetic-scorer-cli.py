@@ -9,7 +9,7 @@ from inspect import getsourcefile
 import piexif
 import requests
 import torch
-from clip import clip
+import clip
 from torch import nn
 from torch.nn import functional
 from torchvision import transforms

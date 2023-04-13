@@ -4,7 +4,7 @@ from inspect import getsourcefile
 import gradio as gr
 import requests
 import torch
-from clip import clip
+import clip
 from torch import nn
 from torch.nn import functional as f
 from torchvision import transforms
