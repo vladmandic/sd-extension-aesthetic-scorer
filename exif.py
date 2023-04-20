@@ -10,8 +10,8 @@ from PIL import Image, ExifTags, TiffImagePlugin, PngImagePlugin
 warnings.filterwarnings("ignore", category=UserWarning)
 
 
-class Exif:
-    __slots__ = ('__dict__')
+class Exif: # pylint: disable=single-string-used-for-slots
+    __slots__ = ('__dict__') # pylint: disable=superfluous-parens
     def __init__(self, image = None):
         super(Exif, self).__setattr__('exif', Image.Exif())
         self.pnginfo = PngImagePlugin.PngInfo()
@@ -56,9 +56,10 @@ class Exif:
         remove_prefix = lambda text, prefix: text[len(prefix):] if text.startswith(prefix) else text
         for encoding in ['utf-8', 'utf-16', 'ascii', 'latin_1', 'cp1252', 'cp437']: # try different encodings
             try:
-                decoded = s.decode(encoding, errors="strict")
-                val = remove_prefix(decoded, 'UNICODE') # remove silly prefix added by old pnginfo/exif encoding
-                val = remove_prefix(val, 'ASCII')
+                s = remove_prefix(s, b'UNICODE')
+                s = remove_prefix(s, b'ASCII')
+                s = remove_prefix(s, b'\x00')
+                val = s.decode(encoding, errors="strict")
                 val = re.sub(r'[\x00-\x09]', '', val).strip() # remove remaining special characters
                 if len(val) == 0: # remove empty strings
                     val = None
