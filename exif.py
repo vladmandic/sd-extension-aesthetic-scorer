@@ -4,10 +4,9 @@ import os
 import io
 import re
 import sys
-import warnings
 from PIL import Image, ExifTags, TiffImagePlugin, PngImagePlugin
 
-warnings.filterwarnings("ignore", category=UserWarning)
+# warnings.filterwarnings("ignore", category=UserWarning)
 
 
 class Exif: # pylint: disable=single-string-used-for-slots
