@@ -95,7 +95,7 @@ def on_before_image_saved(params: ImageSaveParams):
     global error # pylint: disable=global-statement
     if not shared.opts.aesthetic_scorer_enabled or error or params.image is None: # dont try again if previously errored out or no image
         return params
-    try:
+    try:        
         load_models()
         img = params.image.convert('RGB')
         img = tf.resize(img, 224, transforms.InterpolationMode.LANCZOS) # resizes smaller edge
@@ -105,15 +105,24 @@ def on_before_image_saved(params: ImageSaveParams):
         clip_image_embed = f.normalize(clip_model.encode_image(img[None, ...]).float(), dim = -1)
         score = aesthetic_model(clip_image_embed)
         score = round(score.item(), 2)
-        # print('Aesthetic score:', score)
+        add_score_to_filename(params, score)
         if 'parameters' in params.pnginfo:
-            params.pnginfo['parameters'] += f', Score: {score}'
+            params.pnginfo['parameters'] += f', Score: {score}'        
         cleanup_models()
     except Exception as e:
         print('Aesthetic scorer error:', e)
         error = True
     return params
 
+def add_score_to_filename(params, score):
+    if shared.opts.aesthetic_scorer_add_score_to_filename == 'Beginning' or shared.opts.aesthetic_scorer_add_score_to_filename == 'End':
+        filepath, filename = os.path.split(params.filename) 
+        filename, extension = os.path.splitext(filename)
+        if shared.opts.aesthetic_scorer_add_score_to_filename == 'Beginning':
+            params.filename = os.path.join(filepath, f'{score}_{filename}.{extension}')
+        elif shared.opts.aesthetic_scorer_add_score_to_filename == 'End':
+            params.filename = os.path.join(filepath, f'{filename}_{score}.{extension}')
+    return
 
 def on_ui_settings():
     section = ('aesthetic_scorer', "Aesthetic scorer")
@@ -131,7 +140,13 @@ def on_ui_settings():
         component_args = { 'choices': ['ViT-L/14', 'ViT-B/16'] },
         section = section
     ))
-
-
+    shared.opts.add_option("aesthetic_scorer_add_score_to_filename", shared.OptionInfo(
+        default = 'Disabled',
+        label = "Add the score to the filename", 
+        component = gr.Radio,
+        component_args = { 'choices': ['Disabled', 'Beginning', 'End' ] },
+        section = section
+    ))
+    
 script_callbacks.on_before_image_saved(on_before_image_saved)
 script_callbacks.on_ui_settings(on_ui_settings)
