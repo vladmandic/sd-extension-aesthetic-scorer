@@ -1,3 +1,4 @@
+# pylint: disable=import-error
 import os
 from inspect import getsourcefile
 
@@ -91,7 +92,7 @@ def cleanup_models():
     return
 
 
-def on_before_image_saved(params: ImageSaveParams):
+def on_before_image_saved(params: ImageSaveParams): # script_callbacks.ImageSaveParams(image, p, fullfn, pnginfo)
     global error # pylint: disable=global-statement
     if not shared.opts.aesthetic_scorer_enabled or error or params.image is None: # dont try again if previously errored out or no image
         return params
@@ -106,8 +107,12 @@ def on_before_image_saved(params: ImageSaveParams):
         score = aesthetic_model(clip_image_embed)
         score = round(score.item(), 2)
         # print('Aesthetic score:', score)
+        if getattr(params.p, 'extra_generation_params', None) is not None:
+            params.p.extra_generation_params['Score'] = str(score)
         if 'parameters' in params.pnginfo:
             params.pnginfo['parameters'] += f', Score: {score}'
+        if '[score]' in params.filename:
+            params.filename = params.filename.replace('[score]', f'{score}')
         cleanup_models()
     except Exception as e:
         print('Aesthetic scorer error:', e)
